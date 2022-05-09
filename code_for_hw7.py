@@ -23,17 +23,17 @@ class Linear(Module):
         self.W = np.random.normal(0, 1.0 * m ** (-.5), [m, n])  # (m x n)
 
     def forward(self, A):
-        self.A = A   # (m x b)  Hint: make sure you understand what b stands for
-        return None  # Your code (n x b)
+        self.A = A  # (m x b)  Hint: make sure you understand what b stands for
+        return self.W.T @ self.A + self.W0  # Your code (n x b)
 
     def backward(self, dLdZ):  # dLdZ is (n x b), uses stored self.A
-        self.dLdW  = None  # Your code
-        self.dLdW0 = None  # Your code
-        return None        # Your code: return dLdA (m x b)
+        self.dLdW = self.A @ dLdZ.T  # Your code
+        self.dLdW0 = np.sum(dLdZ, axis=1, keepdims=True)  # Your code
+        return self.W @ dLdZ  # Your code: return dLdA (m x b)
 
     def sgd_step(self, lrate):  # Gradient descent step
-        self.W  = None  # Your code
-        self.W0 = None  # Your code
+        self.W = self.W - lrate * self.dLdW  # Your code
+        self.W0 = self.W0 - lrate * self.dLdW0  # Your code
 
 
 # Activation modules
@@ -50,7 +50,7 @@ class Tanh(Module):  # Layer activation
         return self.A
 
     def backward(self, dLdA):  # Uses stored self.A
-        return None  # Your code: return dLdZ (?, b)
+        return dLdA * (1 - self.A ** 2)  # Your code: return dLdZ (?, b)
 
 
 class ReLU(Module):  # Layer activation
@@ -64,13 +64,13 @@ class ReLU(Module):  # Layer activation
 
 class SoftMax(Module):  # Output activation
     def forward(self, Z):
-        return None  # Your code: (?, b)
+        return np.exp(Z) / np.sum(np.exp(Z), axis=0)   # Your code: (?, b)
 
     def backward(self, dLdZ):  # Assume that dLdZ is passed in
         return dLdZ
 
     def class_fun(self, Ypred):  # Return class indices
-        return None  # Your code: (1, b)
+        return np.argmax(Ypred, axis=0)  # Your code: (1, b)
 
 
 # Loss modules
@@ -87,10 +87,10 @@ class NLL(Module):  # Loss
     def forward(self, Ypred, Y):
         self.Ypred = Ypred
         self.Y = Y
-        return None  # Your code: return loss (scalar)
+        return -np.sum(Y * np.log(Ypred))  # Your code: return loss (scalar)
 
     def backward(self):  # Use stored self.Ypred, self.Y
-        return None  # Your code (?, b)
+        return self.Ypred - self.Y  # Your code (?, b)
 
 
 # Neural Network implementation
@@ -127,6 +127,7 @@ class Sequential:
             cf = self.modules[-1].class_fun
             acc = np.mean(cf(self.forward(X)) == cf(Y))
             print('Iteration =', it, '\tAcc =', acc, '\tLoss =', cur_loss, flush=True)
+
 
 ######################################################################
 #   Data Sets
@@ -248,6 +249,7 @@ def sgd_test(nn, test_values):
     unit_test('updated_linear_2.W', test_values['updated_linear_2.W'], linear_2.W)
     unit_test('updated_linear_2.W0', test_values['updated_linear_2.W0'], linear_2.W0)
 
+
 ######################################################################
 
 # TODO: Create your own unit tests
@@ -257,49 +259,47 @@ def sgd_test(nn, test_values):
 np.random.seed(0)
 X, Y = super_simple_separable()  # data
 linear_1 = Linear(2, 3)  # module
-learning_rate = 0.005  #hyperparameter
+learning_rate = 0.005  # hyperparameter
 
-'''
 # test case:
 # forward
 z_1 = linear_1.forward(X)
-exp_z_1 =  np.array([[10.41750064, 6.91122168, 20.73366505, 22.8912344],
-                     [7.16872235, 3.48998746, 10.46996239, 9.9982611],
-                     [-2.07105455, 0.69413716, 2.08241149, 4.84966811]])
+exp_z_1 = np.array([[10.41750064, 6.91122168, 20.73366505, 22.8912344],
+                    [7.16872235, 3.48998746, 10.46996239, 9.9982611],
+                    [-2.07105455, 0.69413716, 2.08241149, 4.84966811]])
 unit_test("linear_forward", exp_z_1, z_1)
-'''
 
-'''
+
+
 # backward
 dL_dz1 = np.array([[1.69467553e-09, -1.33530535e-06, 0.00000000e+00, -0.00000000e+00],
-                                     [-5.24547376e-07, 5.82459519e-04, -3.84805202e-10, 1.47943038e-09],
-                                     [-3.47063705e-02, 2.55611604e-01, -1.83538094e-02, 1.11838432e-04]])
+                   [-5.24547376e-07, 5.82459519e-04, -3.84805202e-10, 1.47943038e-09],
+                   [-3.47063705e-02, 2.55611604e-01, -1.83538094e-02, 1.11838432e-04]])
 exp_dLdX = np.array([[-2.40194628e-02, 1.77064845e-01, -1.27021626e-02, 7.74006953e-05],
-                                    [2.39827939e-02, -1.75870737e-01, 1.26832126e-02, -7.72828555e-05]])
+                     [2.39827939e-02, -1.75870737e-01, 1.26832126e-02, -7.72828555e-05]])
 dLdX = linear_1.backward(dL_dz1)
 unit_test("linear_backward", exp_dLdX, dLdX)
-'''
 
-'''
+
+
 # sgd step
 linear_1.sgd_step(learning_rate)
-exp_linear_1_W = np.array([[1.2473734,  0.28294514,  0.68940437],
-                           [1.58455079, 1.32055711, -0.69218045]]),
-unit_test("linear_sgd_step_W",  exp_linear_1_W,  linear_1.W)
+exp_linear_1_W = np.array([[1.2473734, 0.28294514, 0.68940437],
+                           [1.58455079, 1.32055711, -0.69218045]])
+unit_test("linear_sgd_step_W", exp_linear_1_W, linear_1.W)
 
 exp_linear_1_W0 = np.array([[6.66805339e-09],
                             [-2.90968033e-06],
-                            [-1.01331631e-03]]),
+                            [-1.01331631e-03]])
 unit_test("linear_sgd_step_W0", exp_linear_1_W0, linear_1.W0)
-'''
 
 ######################################################################
 
 # TEST 1: sgd_test for Tanh activation and SoftMax output
-'''
+
 np.random.seed(0)
 sgd_test(Sequential([Linear(2,3), Tanh(), Linear(3,2), SoftMax()], NLL()), test_1_values)
-'''
+
 
 # TEST 2: sgd_test for ReLU activation and SoftMax output
 '''
@@ -346,9 +346,9 @@ def nn_pred_test():
     return nn.modules[-1].class_fun(Ypred).tolist(), [nn.loss.forward(Ypred, Y)]
 
 
-'''
+
 print(nn_tanh_test())
-'''
+
 # Expected output
 '''
     [[[1.2473733761848262, 0.2829538808226157, 0.6924193292712828],
