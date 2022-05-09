@@ -55,11 +55,11 @@ class Tanh(Module):  # Layer activation
 
 class ReLU(Module):  # Layer activation
     def forward(self, Z):
-        self.A = None  # Your code: (?, b)
+        self.A = np.maximum(Z,0)  # Your code: (?, b)
         return self.A
 
     def backward(self, dLdA):  # uses stored self.A
-        return None  # Your code: return dLdZ (?, b)
+        return dLdA * np.where(self.A <= 0, 0, 1)   # Your code: return dLdZ (?, b)
 
 
 class SoftMax(Module):  # Output activation
@@ -87,7 +87,7 @@ class NLL(Module):  # Loss
     def forward(self, Ypred, Y):
         self.Ypred = Ypred
         self.Y = Y
-        return -np.sum(Y * np.log(Ypred))  # Your code: return loss (scalar)
+        return float(np.sum(-Y * np.log(Ypred)))  # Your code: return loss (scalar)
 
     def backward(self):  # Use stored self.Ypred, self.Y
         return self.Ypred - self.Y  # Your code (?, b)
@@ -101,8 +101,14 @@ class Sequential:
 
     def sgd(self, X, Y, iters=100, lrate=0.005):  # Train
         D, N = X.shape
+        sum_loss = 0
         for it in range(iters):
-            pass  # Your code
+            index = np.random.randint(N)
+            Ypred = self.forward(X[:, index:index+1])
+            sum_loss += self.loss.forward(Ypred, Y[:, index:index+1])
+            error = self.loss.backward()
+            self.backward(error)
+            self.sgd_step(lrate)
 
     def forward(self, Xt):  # Compute Ypred
         for m in self.modules: Xt = m.forward(Xt)
@@ -296,10 +302,10 @@ unit_test("linear_sgd_step_W0", exp_linear_1_W0, linear_1.W0)
 ######################################################################
 
 # TEST 1: sgd_test for Tanh activation and SoftMax output
-
+'''
 np.random.seed(0)
 sgd_test(Sequential([Linear(2,3), Tanh(), Linear(3,2), SoftMax()], NLL()), test_1_values)
-
+'''
 
 # TEST 2: sgd_test for ReLU activation and SoftMax output
 '''
@@ -346,8 +352,9 @@ def nn_pred_test():
     return nn.modules[-1].class_fun(Ypred).tolist(), [nn.loss.forward(Ypred, Y)]
 
 
-
+'''
 print(nn_tanh_test())
+'''
 
 # Expected output
 '''
@@ -374,9 +381,9 @@ print(nn_relu_test())
     [-0.004252310922204504, 0.004252310922204505]]]
 '''
 
-'''
+
 print(nn_pred_test())
-'''
+
 # Expected output:
 '''
     ([0, 0, 0, 0], [8.56575061835767])
